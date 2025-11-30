@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking Delivery Order - SITTA</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+</head>
+<body>
+    <div id="tracking-app" class="container">
+        <a href="index.html" class="back-link">← Kembali ke Menu Utama</a>
+        
+        <div class="page-header">
+            <h1>🚚 Tracking Delivery Order</h1>
+            <p>Lacak status pengiriman DO bahan ajar</p>
+        </div>
+
+        <!-- Add DO Form -->
+        <div class="form-section">
+            <h2>Tambah Delivery Order Baru</h2>
+            <button class="btn btn-success" @click="toggleAddForm" style="margin-bottom: 20px;">
+                {{ showAddForm ? 'Batal' : '+ Tambah DO Baru' }}
+            </button>
+            
+            <form v-show="showAddForm" @submit.prevent="submitForm">
+                <div class="form-group">
+                    <label>Nomor DO</label>
+                    <input type="text" :value="nextDONumber" disabled style="background: #f5f5f5;">
+                    <small style="color: #666;">Nomor DO akan ter-generate otomatis</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>NIM *</label>
+                        <input type="text" v-model="formData.nim" placeholder="Contoh: 123456789">
+                        <span class="error-message" v-if="formErrors.nim">{{ formErrors.nim }}</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nama *</label>
+                        <input type="text" v-model="formData.nama" placeholder="Contoh: Rina Wulandari">
+                        <span class="error-message" v-if="formErrors.nama">{{ formErrors.nama }}</span>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ekspedisi *</label>
+                        <select v-model="formData.ekspedisi">
+                            <option value="">Pilih Ekspedisi</option>
+                            <option v-for="pengiriman in pengirimanList" :key="pengiriman.kode" :value="pengiriman.kode">
+                                {{ pengiriman.nama }}
+                            </select>
+                        <span class="error-message" v-if="formErrors.ekspedisi">{{ formErrors.ekspedisi }}</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Tanggal Kirim *</label>
+                        <input type="date" v-model="formData.tanggalKirim">
+                        <span class="error-message" v-if="formErrors.tanggalKirim">{{ formErrors.tanggalKirim }}</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Paket Bahan Ajar *</label>
+                    <select v-model="formData.paket">
+                        <option value="">Pilih Paket</option>
+                        <option v-for="p in paket" :key="p.kode" :value="p.kode">
+                            {{ p.kode }} - {{ p.nama }}
+                        </option>
+                    </select>
+                    <span class="error-message" v-if="formErrors.paket">{{ formErrors.paket }}</span>
+                    
+                    <!-- Detail Paket -->
+                    <div v-if="selectedPaketDetail" class="package-details">
+                        <h4>Detail Paket: {{ selectedPaketDetail.nama }}</h4>
+                        <p><strong>Kode:</strong> {{ selectedPaketDetail.kode }}</p>
+                        <p><strong>Isi Paket:</strong></p>
+                        <ul>
+                            <li v-for="kode in selectedPaketDetail.isi" :key="kode">• {{ kode }}</li>
+                        </ul>
+                        <p><strong>Harga:</strong> Rp {{ selectedPaketDetail.harga.toLocaleString('id-ID') }}</p>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Total Harga</label>
+                    <input type="text" :value="'Rp ' + totalHarga.toLocaleString('id-ID')" disabled style="background: #f5f5f5; font-weight: bold; color: #667eea;">
+                </div>
+                
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary">Simpan DO</button>
+                    <button type="button" class="btn btn-secondary" @click="toggleAddForm">Batal</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tracking List -->
+        <div class="page-header">
+            <h2>Daftar Delivery Order ({{ trackingList.length }} DO)</h2>
+        </div>
+        
+        <div v-if="trackingList.length === 0" class="empty-state">
+            <h3>Belum ada Delivery Order</h3>
+            <p>Silakan tambah DO baru untuk memulai tracking</p>
+        </div>
+        
+        <div v-for="item in trackingList" :key="item.noDO" class="tracking-card">
+            <h3>DO: {{ item.noDO }}</h3>
+            
+            <div class="tracking-info">
+                <div class="info-item">
+                    <label>NIM</label>
+                    <span>{{ item.nim }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <label>Nama</label>
+                    <span>{{ item.nama }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <label>Ekspedisi</label>
+                    <span>{{ item.ekspedisi }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <label>Tanggal Kirim</label>
+                    <span>{{ item.tanggalKirim }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <label>Paket</label>
+                    <span>{{ item.paket }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <label>Total Harga</label>
+                    <span>Rp {{ item.total.toLocaleString('id-ID') }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <label>Status</label>
+                    <span class="status-badge" :class="{
+                        'status-aman': item.status === 'Selesai',
+                        'status-menipis': item.status === 'Dalam Perjalanan',
+                        'status-kosong': item.status === 'Gagal'
+                    }">{{ item.status }}</span>
+                </div>
+            </div>
+            
+            <!-- Detail Paket -->
+            <div v-if="getPaketDetail(item.paket)" class="package-details" style="margin-top: 15px;">
+                <h4>Detail Paket: {{ getPaketDetail(item.paket).nama }}</h4>
+                <p><strong>Isi Paket:</strong></p>
+                <ul>
+                    <li v-for="kode in getPaketDetail(item.paket).isi" :key="kode">• {{ kode }}</li>
+                </ul>
+            </div>
+            
+            <!-- Timeline Perjalanan -->
+            <div class="timeline" v-if="item.perjalanan && item.perjalanan.length > 0">
+                <h4 style="margin-bottom: 15px; color: #667eea;">Riwayat Perjalanan</h4>
+                <div v-for="(step, index) in item.perjalanan" :key="index" class="timeline-item">
+                    <div class="time">{{ step.waktu }}</div>
+                    <div class="keterangan">{{ step.keterangan }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/tracking-app.js"></script>
+</body>
+</html>
+
